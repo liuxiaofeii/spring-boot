@@ -61,15 +61,22 @@ public enum WebApplicationType {
 	private static final String JERSEY_INDICATOR_CLASS = "org.glassfish.jersey.servlet.ServletContainer";
 
 	static WebApplicationType deduceFromClasspath() {
-		if (ClassUtils.isPresent(WEBFLUX_INDICATOR_CLASS, null) && !ClassUtils.isPresent(WEBMVC_INDICATOR_CLASS, null)
+
+		if (ClassUtils.isPresent(WEBFLUX_INDICATOR_CLASS, null) &&
+				!ClassUtils.isPresent(WEBMVC_INDICATOR_CLASS, null)
 				&& !ClassUtils.isPresent(JERSEY_INDICATOR_CLASS, null)) {
+			//该程序是 REACTIVE 程序
 			return WebApplicationType.REACTIVE;
 		}
+
 		for (String className : SERVLET_INDICATOR_CLASSES) {
 			if (!ClassUtils.isPresent(className, null)) {
+				//该程序为 NONE
 				return WebApplicationType.NONE;
 			}
 		}
+
+		//默认返回是 SERVLET 程序
 		return WebApplicationType.SERVLET;
 	}
 

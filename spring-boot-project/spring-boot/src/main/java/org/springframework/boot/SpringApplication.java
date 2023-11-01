@@ -209,6 +209,7 @@ public class SpringApplication {
 
 	private boolean headless = true;
 
+	// 是否注册 ShutdownHook 钩子
 	private boolean registerShutdownHook = true;
 
 	// ApplicationContextInitializer 数组
@@ -264,25 +265,27 @@ public class SpringApplication {
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public SpringApplication(ResourceLoader resourceLoader, Class<?>... primarySources) {
+		// 1、初始化资源加载器
 		this.resourceLoader = resourceLoader;
 
-		// 初始化主要的Java Config类
+		// 2、初始化主要的Java Config类
 		Assert.notNull(primarySources, "PrimarySources must not be null");
 		this.primarySources = new LinkedHashSet<>(Arrays.asList(primarySources));
 
-		// 初始化Web应用类型
+		// 3、初始化Web应用类型
+		// #deduceFromClasspath推断断应用的类型 ，创建的是一个 SERVLET 应用还是 REACTIVE应用或者是 NONE
 		this.webApplicationType = WebApplicationType.deduceFromClasspath();
 		this.bootstrapRegistryInitializers = new ArrayList<>(
 				getSpringFactoriesInstances(BootstrapRegistryInitializer.class));
 
-		// 初始化ApplicationContextInitializer 数组
+		// 4、初始化ApplicationContextInitializer数组为 classpath 下的所有的可用的 【ApplicationContextInitializer】
 		setInitializers((Collection) getSpringFactoriesInstances(ApplicationContextInitializer.class));
 
-		// 初始化ApplicationListener 数组
+		// 5、初始化ApplicationListener数组为 classpath 下的所有的可用的 【ApplicationListener】。
 		setListeners((Collection) getSpringFactoriesInstances(ApplicationListener.class));
 
-		// 推断当前主类
-		//  mainApplicationClass 属性，主要就是用来打印下日志，说明是通过这个类启动 Spring 应用的。
+		// 6、mainApplicationClass 属性，主要就是用来打印下日志，说明是通过这个类启动 Spring 应用的。
+		// #deduceMainApplicationClass根据调用栈，推断出 main 方法的类名
 		this.mainApplicationClass = deduceMainApplicationClass();
 	}
 
@@ -318,7 +321,7 @@ public class SpringApplication {
 
 		ConfigurableApplicationContext context = null;
 
-		// <2> 配置 headless 属性。这个逻辑，可以无视，和 AWT 相关
+		// <2> 设置置系统属性 java.awt.headless，该属性会被设置为 true。这个逻辑，可以无视，和 AWT 相关
 		configureHeadlessProperty();
 
 		// 获得 SpringApplicationRunListener 的数组，并启动监听
@@ -326,28 +329,32 @@ public class SpringApplication {
 		listeners.starting(bootstrapContext, this.mainApplicationClass);
 
 		try {
-			// <3> 创建  ApplicationArguments 对象
+			// <3> 获取启动时传入参数 args（main 方法传进来的参数） 并初始化为 ApplicationArguments 对象。
 			ApplicationArguments applicationArguments = new DefaultApplicationArguments(args);
 
-			// <4> 【加载属性配置】。执行完成后，所有的 environment 的属性都会加载进来，
-			// 包括 application.properties 和外部的属性配置。
+			// <4> 【加载属性配置】。根据 listeners 和 applicationArguments 配置SpringBoot 应用的环境。
+			// 执行完成后，所有的 environment 的属性都会加载进来，包括 application.properties 和外部的属性配置。
 			ConfigurableEnvironment environment = prepareEnvironment(listeners, bootstrapContext, applicationArguments);
+
+			// 根据环境信息配置要忽略的 bean 信息
 			configureIgnoreBeanInfo(environment);
 
 			// <5> 打印 Spring Banner
 			Banner printedBanner = printBanner(environment);
 
-			// <6> 【创建 Spring 容器】。
+			// <6> 【创建 Spring 容器】。根据应用类型来确定该 Spring Boot 项目应该创建什么类型的 ApplicationContext ，
+			// 默认情况下，如果没有明确设置的应用程序上下文或应用程序上下文类，该方法会在返回合适的默认值。
 			context = createApplicationContext();
+
 			context.setApplicationStartup(this.applicationStartup);
 
-			// <8> 主要是调用所有初始化类的 initialize 方法
+			// <8> 主要是调用所有初始化类的 initialize 方法，给 context 的属性做赋值，以及 ApplicationContextInitializer 的初始化
 			prepareContext(bootstrapContext, context, environment, listeners, applicationArguments, printedBanner);
 
 			// <9> 【初始化 Spring 容器】。启动（刷新） Spring 容器
 			refreshContext(context);
 
-			// <10> 执行 Spring 容器的初始化的后置逻辑。默认实现为空。
+			// <10> 执行 Spring 容器的初始化的后置逻辑。上下文刷新后调用该方法，其内部没有做任何操作。
 			afterRefresh(context, applicationArguments);
 
 			// <11> 停止 StopWatch 统计时长
@@ -358,7 +365,7 @@ public class SpringApplication {
 				new StartupInfoLogger(this.mainApplicationClass).logStarted(getApplicationLog(), timeTakenToStartup);
 			}
 
-			// <13> 通知 SpringApplicationRunListener 的数组，Spring 容器启动完成。
+			// <13> 通知 SpringApplicationRunListener 的数组，【Spring 容器启动完成】。
 			listeners.started(context, timeTakenToStartup);
 
 			// <14> 调用 ApplicationRunner 或者 CommandLineRunner 的运行方法。
@@ -370,9 +377,11 @@ public class SpringApplication {
 			throw new IllegalStateException(ex);
 		}
 
-		// <15> 通知 SpringApplicationRunListener 的数组，Spring 容器运行中。
+
 		try {
 			Duration timeTakenToReady = Duration.ofNanos(System.nanoTime() - startTime);
+
+			// <15> 通知 SpringApplicationRunListener 的数组，【Spring 容器运行中】。
 			listeners.ready(context, timeTakenToReady);
 		}
 		catch (Throwable ex) {
@@ -454,21 +463,35 @@ public class SpringApplication {
 	private void prepareContext(DefaultBootstrapContext bootstrapContext, ConfigurableApplicationContext context,
 			ConfigurableEnvironment environment, SpringApplicationRunListeners listeners,
 			ApplicationArguments applicationArguments, Banner printedBanner) {
+		// <1> 设置 context 的 environment 属性
 		context.setEnvironment(environment);
+
+		// <2> 设该方法对 context 进行了预设置，设置了 ResourceLoader 和 ClassLoader，并向 bean 工厂中添加了一个beanNameGenerator 。
 		postProcessApplicationContext(context);
+
+		// <3> 在刷新之前将任何 ApplicationContextInitializer 应用于上下文
 		applyInitializers(context);
+
+		// <4> 通知 SpringApplicationRunListener 的数组，Spring 容器准备完成。
 		listeners.contextPrepared(context);
+
 		bootstrapContext.close(context);
+
+		// <5> 打印日志
 		if (this.logStartupInfo) {
 			logStartupInfo(context.getParent() == null);
 			logStartupProfileInfo(context);
 		}
+
 		// Add boot specific singleton beans
+		// <6> 设置 beanFactory 的属性
 		ConfigurableListableBeanFactory beanFactory = context.getBeanFactory();
+
 		beanFactory.registerSingleton("springApplicationArguments", applicationArguments);
 		if (printedBanner != null) {
 			beanFactory.registerSingleton("springBootBanner", printedBanner);
 		}
+
 		if (beanFactory instanceof AbstractAutowireCapableBeanFactory) {
 			((AbstractAutowireCapableBeanFactory) beanFactory).setAllowCircularReferences(this.allowCircularReferences);
 			if (beanFactory instanceof DefaultListableBeanFactory) {
@@ -476,21 +499,32 @@ public class SpringApplication {
 						.setAllowBeanDefinitionOverriding(this.allowBeanDefinitionOverriding);
 			}
 		}
+
 		if (this.lazyInitialization) {
 			context.addBeanFactoryPostProcessor(new LazyInitializationBeanFactoryPostProcessor());
 		}
+
 		context.addBeanFactoryPostProcessor(new PropertySourceOrderingBeanFactoryPostProcessor(context));
+
 		// Load the sources
+		// <7> 加载 BeanDefinition 们
 		Set<Object> sources = getAllSources();
 		Assert.notEmpty(sources, "Sources must not be empty");
+
+		// <8> 主要是加载各种 beans 到 ApplicationContext 对象中。
 		load(context, sources.toArray(new Object[0]));
+
+		// <9> 通知 SpringApplicationRunListener 的数组，Spring 容器加载完成。
 		listeners.contextLoaded(context);
 	}
 
 	private void refreshContext(ConfigurableApplicationContext context) {
+		// <1> 注册 ShutdownHook 钩子，这个钩子，主要用于 Spring 应用的关闭时，销毁相应的 Bean 们。
 		if (this.registerShutdownHook) {
 			shutdownHook.registerApplicationContext(context);
 		}
+
+		// <2> 开启（刷新）Spring 容器
 		refresh(context);
 	}
 
@@ -510,12 +544,17 @@ public class SpringApplication {
 		return getSpringFactoriesInstances(type, new Class<?>[] {});
 	}
 
+	//获取所有的 Spring 工厂实例
 	private <T> Collection<T> getSpringFactoriesInstances(Class<T> type, Class<?>[] parameterTypes,
 														  Object... args) {
 		ClassLoader classLoader = getClassLoader();
 		// Use names and ensure unique to protect against duplicates
 		// <1> 加载指定类型对应的，在 `META-INF/spring.factories` 里的类名的数组
-		Set<String> names = new LinkedHashSet<>(SpringFactoriesLoader.loadFactoryNames(type, classLoader));
+		Set<String> names = new LinkedHashSet<>(
+				// SpringFactoriesLoader.loadFactoryNames() ，是从 META-INF/spring.factories 的资源文件中，
+				// 读取 key 为org.springframework.context.ApplicationContextInitializer 的 value。
+				SpringFactoriesLoader.loadFactoryNames(type, classLoader)
+		);
 
 		// <2> 创建对象们
 		List<T> instances = createSpringFactoriesInstances(type, parameterTypes, classLoader, args, names);
@@ -711,10 +750,14 @@ public class SpringApplication {
 	 */
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	protected void applyInitializers(ConfigurableApplicationContext context) {
+		// 遍历 ApplicationContextInitializer 数组
 		for (ApplicationContextInitializer initializer : getInitializers()) {
+			// 校验 ApplicationContextInitializer 的泛型非空
 			Class<?> requiredType = GenericTypeResolver.resolveTypeArgument(initializer.getClass(),
 					ApplicationContextInitializer.class);
 			Assert.isInstanceOf(requiredType, context, "Unable to call initializer.");
+
+			// 校验 ApplicationContextInitializer 的泛型非空
 			initializer.initialize(context);
 		}
 	}
@@ -777,7 +820,14 @@ public class SpringApplication {
 		if (logger.isDebugEnabled()) {
 			logger.debug("Loading source " + StringUtils.arrayToCommaDelimitedString(sources));
 		}
-		BeanDefinitionLoader loader = createBeanDefinitionLoader(getBeanDefinitionRegistry(context), sources);
+
+		// <1> 通过 createBeanDefinitionLoader把参数（注册表、资源）传进去，然后创建 BeanDefinitionLoader。
+		BeanDefinitionLoader loader = createBeanDefinitionLoader(
+				// 获取 bean 定义注册表
+				getBeanDefinitionRegistry(context),
+				sources);
+
+		// <2> 设置 loader 的属性
 		if (this.beanNameGenerator != null) {
 			loader.setBeanNameGenerator(this.beanNameGenerator);
 		}
@@ -787,6 +837,8 @@ public class SpringApplication {
 		if (this.environment != null) {
 			loader.setEnvironment(this.environment);
 		}
+
+		// <3> 执行 BeanDefinition 加载
 		loader.load();
 	}
 
@@ -842,6 +894,8 @@ public class SpringApplication {
 	 * @param applicationContext the application context to refresh
 	 */
 	protected void refresh(ConfigurableApplicationContext applicationContext) {
+
+		// 启动（刷新） AbstractApplicationContext
 		applicationContext.refresh();
 	}
 
@@ -854,10 +908,19 @@ public class SpringApplication {
 	}
 
 	private void callRunners(ApplicationContext context, ApplicationArguments args) {
+		// <1> 获得所有 Runner 们
 		List<Object> runners = new ArrayList<>();
+
+		// <1.1> 获得所有 ApplicationRunner Bean 们
 		runners.addAll(context.getBeansOfType(ApplicationRunner.class).values());
+
+		// <1.2> 获得所有 CommandLineRunner Bean 们
 		runners.addAll(context.getBeansOfType(CommandLineRunner.class).values());
+
+		// <1.3> 排序 runners
 		AnnotationAwareOrderComparator.sort(runners);
+
+		// <2> 遍历 Runner 数组，执行逻辑
 		for (Object runner : new LinkedHashSet<>(runners)) {
 			if (runner instanceof ApplicationRunner) {
 				callRunner((ApplicationRunner) runner, args);
@@ -1414,6 +1477,7 @@ public class SpringApplication {
 	 * @return the running {@link ApplicationContext}
 	 */
 	public static ConfigurableApplicationContext run(Class<?>[] primarySources, String[] args) {
+		// 创建一个 SpringApplication 实例，应用上下文会根据指定的主要资源加载 beans ，实例在调用 run 方法之前可以定制化
 		return new SpringApplication(primarySources).run(args);
 	}
 

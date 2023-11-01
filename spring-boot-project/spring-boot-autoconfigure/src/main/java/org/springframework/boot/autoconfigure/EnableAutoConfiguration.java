@@ -65,42 +65,46 @@ import org.springframework.core.io.support.SpringFactoriesLoader;
  * {@link Conditional @Conditional} beans (most often using
  * {@link ConditionalOnClass @ConditionalOnClass} and
  * {@link ConditionalOnMissingBean @ConditionalOnMissingBean} annotations).
- *
  * @author Phillip Webb
  * @author Stephane Nicoll
- * @since 1.0.0
  * @see ConditionalOnBean
  * @see ConditionalOnMissingBean
  * @see ConditionalOnClass
  * @see AutoConfigureAfter
  * @see SpringBootApplication
+ * @since 1.0.0
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
+
+// 1、
 @AutoConfigurationPackage
+
+// 2、【自动装配】引入AutoConfigurationImportSelector 类。该类使用了 Spring Core 包的 SpringFactoriesLoader 类的 【loadFactoryNamesof()】 方法。
+// 它也实现了 DeferredImportSelector 接口，并实现了 selectImports 方法，用来导出Configuration 类。
 @Import(AutoConfigurationImportSelector.class)
 public @interface EnableAutoConfiguration {
 
-	/**
-	 * Environment property that can be used to override when auto-configuration is
-	 * enabled.
-	 */
-	String ENABLED_OVERRIDE_PROPERTY = "spring.boot.enableautoconfiguration";
+    /**
+     * Environment property that can be used to override when auto-configuration is
+     * enabled.
+     */
+    String ENABLED_OVERRIDE_PROPERTY = "spring.boot.enableautoconfiguration";
 
-	/**
-	 * Exclude specific auto-configuration classes such that they will never be applied.
-	 * @return the classes to exclude
-	 */
-	Class<?>[] exclude() default {};
+    /**
+     * Exclude specific auto-configuration classes such that they will never be applied.
+     * @return the classes to exclude
+     */
+    Class<?>[] exclude() default {};
 
-	/**
-	 * Exclude specific auto-configuration class names such that they will never be
-	 * applied.
-	 * @return the class names to exclude
-	 * @since 1.3.0
-	 */
-	String[] excludeName() default {};
+    /**
+     * Exclude specific auto-configuration class names such that they will never be
+     * applied.
+     * @return the class names to exclude
+     * @since 1.3.0
+     */
+    String[] excludeName() default {};
 
 }

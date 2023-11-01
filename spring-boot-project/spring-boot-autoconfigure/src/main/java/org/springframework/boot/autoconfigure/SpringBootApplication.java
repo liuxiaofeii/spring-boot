@@ -48,17 +48,32 @@ import org.springframework.data.repository.Repository;
  * @author Andy Wilkinson
  * @since 1.2.0
  */
+// ---------基本注解
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 @Inherited
+
+// ---------其他注解
+// 1、【自动装配】@SpringBootConfiguration【继承自@Configuration】，【二者功能也一致】，【标注当前类是配置类】，
+// 并会将当前类内声明的一个或多个以【@Bean注解标记的方法的实例纳入到spring容器】中，并且实例名就是方法名。
 @SpringBootConfiguration
+
+// 2、【自动配置】@EnableAutoConfiguration的作用启动自动的配置，@EnableAutoConfiguration注解的意思就是Springboot根据你添加的 jar 包来配置你项目的默认配置，
+// 比如根据spring-boot-starter-web ，来判断你的项目是否需要添加了webmvc和tomcat，就会自动的帮你配置 web 项目中所需要的默认配置。
+// 简单点说就是它会【根据定义在 classpath 下的类，自动的给你生成一些 Bean，并加载到 Spring 的 Context】 中。
 @EnableAutoConfiguration
+
+// 3、【自动装配】可以通过该注解指定【扫描】某些包下【包含如下注解的均自动注册为 spring beans】：
+// 【@Component、@Service、 @Repository、 @Controller、@Entity】 等等
+// 以前是在 xml 配置文件中设置如下标签：<context:component-scan>（用来扫描包配置）
+// 除了可以使用 @ComponentScan 注解来加载我们的 bean，还可以在 Application 类中使用 【@Import】 指定该类。
 @ComponentScan(excludeFilters = { @Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
 		@Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class) })
 public @interface SpringBootApplication {
 
 	/**
+	 * 根据 【class】 来排除，【排除特定的类加入 spring 容器】，传入参数 value 类型是 class 类型
 	 * Exclude specific auto-configuration classes such that they will never be applied.
 	 * @return the classes to exclude
 	 */
@@ -66,6 +81,7 @@ public @interface SpringBootApplication {
 	Class<?>[] exclude() default {};
 
 	/**
+	 * 根据 【class name】 来排除，【排除特定的类加入 spring 容器】，传入参数 value 类型是 class 的全类名字符串数组
 	 * Exclude specific auto-configuration class names such that they will never be
 	 * applied.
 	 * @return the class names to exclude
@@ -75,6 +91,7 @@ public @interface SpringBootApplication {
 	String[] excludeName() default {};
 
 	/**
+	 * 指定【扫描包】，参数是【包名】的【字符串数组】。
 	 * Base packages to scan for annotated components. Use {@link #scanBasePackageClasses}
 	 * for a type-safe alternative to String-based package names.
 	 * <p>
@@ -90,6 +107,7 @@ public @interface SpringBootApplication {
 	String[] scanBasePackages() default {};
 
 	/**
+	 * 扫描特定的包，参数类似是 【Class 类型数组】。
 	 * Type-safe alternative to {@link #scanBasePackages} for specifying the packages to
 	 * scan for annotated components. The package of each class specified will be scanned.
 	 * <p>
