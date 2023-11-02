@@ -151,7 +151,7 @@ public class AutoConfigurationImportSelector implements DeferredImportSelector, 
 		// <5> 根据条件（Condition），过滤掉不符合条件的配置类
 		configurations = getConfigurationClassFilter().filter(configurations);
 
-		// <6> 触发自动配置类引入完成的事件（从META-INF/spring.factories读取配置）
+		// <6> 触发自动配置类引入完成的事件
 		fireAutoConfigurationImportEvents(configurations, exclusions);
 
 		// <7> 创建 AutoConfigurationEntry 对象
